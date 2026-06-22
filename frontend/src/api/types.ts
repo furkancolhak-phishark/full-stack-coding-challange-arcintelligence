@@ -62,6 +62,21 @@ export type AnalysisResult = {
   generated_by: string;
 };
 
+export type FollowUpResponse = {
+  answer: string;
+  referenced_findings: number[];
+  suggested_action: string;
+  generated_by: string;
+};
+
+export type AnalysisFollowUp = {
+  id: number;
+  analysis_run: number;
+  question: string;
+  response: FollowUpResponse;
+  created_at: string;
+};
+
 export type AnalysisRun = {
   id: number;
   scenario: number;
@@ -71,14 +86,8 @@ export type AnalysisRun = {
   model: string;
   input_snapshot: unknown;
   result: AnalysisResult;
+  follow_ups: AnalysisFollowUp[];
   created_at: string;
-};
-
-export type FollowUpResponse = {
-  answer: string;
-  referenced_findings: number[];
-  suggested_action: string;
-  generated_by: string;
 };
 
 export type ProviderModel = {

@@ -4,8 +4,15 @@ from rest_framework import status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 
-from .models import AnalysisRun, BudgetLineItem, BudgetScenario, LLMProviderConfig
+from .models import (
+    AnalysisFollowUp,
+    AnalysisRun,
+    BudgetLineItem,
+    BudgetScenario,
+    LLMProviderConfig,
+)
 from .serializers import (
+    AnalysisFollowUpSerializer,
     AnalysisFollowUpRequestSerializer,
     AnalysisRunSerializer,
     BudgetLineItemSerializer,
@@ -29,7 +36,9 @@ class BudgetScenarioViewSet(viewsets.ModelViewSet):
     serializer_class = BudgetScenarioSerializer
 
     def get_queryset(self):
-        return BudgetScenario.objects.prefetch_related("line_items", "analysis_runs")
+        return BudgetScenario.objects.prefetch_related(
+            "line_items", "analysis_runs__follow_ups"
+        )
 
     @action(detail=True, methods=["post"])
     def analyze(self, request, pk=None):
@@ -53,7 +62,7 @@ class BudgetScenarioViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=["get"], url_path="analysis-runs")
     def analysis_runs(self, request, pk=None):
         scenario = self.get_object()
-        runs = scenario.analysis_runs.all()
+        runs = scenario.analysis_runs.prefetch_related("follow_ups")
         return Response(AnalysisRunSerializer(runs, many=True).data)
 
 
@@ -75,7 +84,7 @@ class BudgetLineItemViewSet(viewsets.ModelViewSet):
 
 
 class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
-    queryset = AnalysisRun.objects.select_related("scenario")
+    queryset = AnalysisRun.objects.select_related("scenario").prefetch_related("follow_ups")
     serializer_class = AnalysisRunSerializer
 
     @action(detail=True, methods=["get"], url_path="export")
@@ -113,7 +122,15 @@ class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
         serializer.is_valid(raise_exception=True)
         run = self.get_object()
         result = answer_follow_up(run, serializer.validated_data["question"])
-        return Response(result, status=status.HTTP_200_OK)
+        follow_up = AnalysisFollowUp.objects.create(
+            analysis_run=run,
+            question=serializer.validated_data["question"],
+            response=result,
+        )
+        return Response(
+            AnalysisFollowUpSerializer(follow_up).data,
+            status=status.HTTP_201_CREATED,
+        )
 
 
 class LLMProviderConfigViewSet(viewsets.ModelViewSet):

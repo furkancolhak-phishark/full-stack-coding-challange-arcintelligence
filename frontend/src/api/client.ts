@@ -1,6 +1,6 @@
 import {
+  AnalysisFollowUp,
   AnalysisRun,
-  FollowUpResponse,
   LineItem,
   LineItemPayload,
   ProviderConfig,
@@ -103,7 +103,7 @@ export const api = {
       body: JSON.stringify(payload)
     }),
   followUpAnalysis: (id: number, question: string) =>
-    request<FollowUpResponse>(`/analysis-runs/${id}/follow-up/`, {
+    request<AnalysisFollowUp>(`/analysis-runs/${id}/follow-up/`, {
       method: "POST",
       body: JSON.stringify({ question })
     })

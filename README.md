@@ -9,7 +9,7 @@ Users can:
 - create, edit, and delete budget scenarios
 - add, edit, and delete line items inside a scenario
 - run an analysis for the selected scenario
-- ask one follow-up question about a saved analysis
+- ask follow-up questions about a saved analysis
 - view the result as structured UI instead of plain text
 - switch between saved analysis runs
 - export a saved analysis as Markdown or PDF
@@ -107,7 +107,7 @@ Gemini is the default hosted option in this repo, and the default Gemini model i
 
 At the same time, I did not want the app to be tied to one provider or one model. That is why I added the provider layer in the first place. The user can configure Gemini, OpenAI, Anthropic, or Ollama, browse that provider's model list, pick the model they want, and use that selection when running `Analyze Budget`.
 
-I also added a simple follow-up flow on top of a saved analysis. It is not a full chat interface. Instead, the user can ask one follow-up question about the selected analysis run and get a structured answer with referenced findings and a suggested action.
+I also added a simple follow-up flow on top of a saved analysis. It is not a full chat interface. Instead, the user can ask follow-up questions about the selected analysis run and get structured answers with referenced findings and a suggested action. Those follow-up entries are saved with the analysis run and still appear after refresh.
 
 Provider API keys saved from the UI are encrypted in the backend database. The UI only shows masked values after save.
 

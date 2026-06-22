@@ -2,7 +2,7 @@ import { FileDown, FileText, MessageSquareMore } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api } from "../api/client";
-import { AnalysisRun, FollowUpResponse, LineItem } from "../api/types";
+import { AnalysisFollowUp, AnalysisRun, LineItem } from "../api/types";
 import {
   formatMoney,
   formatPercent,
@@ -21,13 +21,13 @@ export function AnalysisPanel({
   lineItems: LineItem[];
 }) {
   const [followUpQuestion, setFollowUpQuestion] = useState("");
-  const [followUpResult, setFollowUpResult] = useState<FollowUpResponse | null>(null);
+  const [followUpEntries, setFollowUpEntries] = useState<AnalysisFollowUp[]>([]);
   const [followUpLoading, setFollowUpLoading] = useState(false);
   const [followUpError, setFollowUpError] = useState<string | null>(null);
 
   useEffect(() => {
     setFollowUpQuestion("");
-    setFollowUpResult(null);
+    setFollowUpEntries(analysis?.follow_ups || []);
     setFollowUpError(null);
   }, [analysis?.id]);
 
@@ -56,8 +56,9 @@ export function AnalysisPanel({
     setFollowUpLoading(true);
     setFollowUpError(null);
     try {
-      const nextResult = await api.followUpAnalysis(analysis.id, followUpQuestion.trim());
-      setFollowUpResult(nextResult);
+      const nextEntry = await api.followUpAnalysis(analysis.id, followUpQuestion.trim());
+      setFollowUpEntries((current) => [nextEntry, ...current]);
+      setFollowUpQuestion("");
     } catch (error) {
       setFollowUpError(
         error instanceof Error ? error.message : "Failed to ask follow-up."
@@ -165,18 +166,28 @@ export function AnalysisPanel({
           {followUpLoading ? "Asking..." : "Ask follow-up"}
         </button>
         {followUpError && <p className="emptyState">{followUpError}</p>}
-        {followUpResult && (
-          <div className="followUpResult">
+        {!followUpEntries.length && (
+          <p className="emptyState">No follow-up questions for this analysis yet.</p>
+        )}
+        {followUpEntries.map((entry) => (
+          <div className="followUpResult" key={entry.id}>
+            <p className="muted">
+              Follow-up asked {new Date(entry.created_at).toLocaleString()}
+            </p>
+            <div className="metric">
+              <span>Question</span>
+              <strong>{entry.question}</strong>
+            </div>
             <h4>Follow-up answer</h4>
-            <p>{followUpResult.answer}</p>
+            <p>{entry.response.answer}</p>
             <div className="metric">
               <span>Suggested action</span>
-              <strong>{followUpResult.suggested_action}</strong>
+              <strong>{entry.response.suggested_action}</strong>
             </div>
             <div className="analysisSection">
               <h4>Evidence used</h4>
               <div className="evidenceList">
-                {followUpResult.referenced_findings.map((itemId) => {
+                {entry.response.referenced_findings.map((itemId) => {
                   const finding = findingsById.get(itemId);
                   const lineItem = lineItemsById.get(itemId);
                   if (!finding) return null;
@@ -199,7 +210,7 @@ export function AnalysisPanel({
               </div>
             </div>
           </div>
-        )}
+        ))}
       </div>
 
       <EvidenceDrawer findings={result.findings} lineItems={lineItems} />

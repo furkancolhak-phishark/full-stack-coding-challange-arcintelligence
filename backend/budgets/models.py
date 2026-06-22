@@ -109,3 +109,21 @@ class AnalysisRun(models.Model):
 
     def __str__(self):
         return f"{self.scenario} analysis at {self.created_at:%Y-%m-%d %H:%M}"
+
+
+class AnalysisFollowUp(models.Model):
+    analysis_run = models.ForeignKey(
+        AnalysisRun, related_name="follow_ups", on_delete=models.CASCADE
+    )
+    question = models.CharField(max_length=500)
+    response = models.JSONField()
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return (
+            f"Follow-up for analysis {self.analysis_run_id} "
+            f"at {self.created_at:%Y-%m-%d %H:%M}"
+        )

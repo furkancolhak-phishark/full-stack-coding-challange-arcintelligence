@@ -1,6 +1,12 @@
 from rest_framework import serializers
 
-from .models import AnalysisRun, BudgetLineItem, BudgetScenario, LLMProviderConfig
+from .models import (
+    AnalysisFollowUp,
+    AnalysisRun,
+    BudgetLineItem,
+    BudgetScenario,
+    LLMProviderConfig,
+)
 from .services.provider_catalog import provider_choices
 from .services.secrets import decrypt_secret, encrypt_secret
 from .services.variance import money_string, percent
@@ -77,7 +83,16 @@ class BudgetScenarioSerializer(serializers.ModelSerializer):
         return money_string(sum((item.variance for item in obj.line_items.all()), 0))
 
 
+class AnalysisFollowUpSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AnalysisFollowUp
+        fields = ["id", "analysis_run", "question", "response", "created_at"]
+        read_only_fields = fields
+
+
 class AnalysisRunSerializer(serializers.ModelSerializer):
+    follow_ups = AnalysisFollowUpSerializer(many=True, read_only=True)
+
     class Meta:
         model = AnalysisRun
         fields = [
@@ -89,6 +104,7 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
             "model",
             "input_snapshot",
             "result",
+            "follow_ups",
             "created_at",
         ]
         read_only_fields = fields

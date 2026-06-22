@@ -1,7 +1,7 @@
 from django.test import TestCase, override_settings
 from rest_framework.test import APIClient
 
-from budgets.models import BudgetLineItem, BudgetScenario
+from budgets.models import AnalysisFollowUp, BudgetLineItem, BudgetScenario
 from budgets.services.ai_analysis import analyze_scenario
 
 
@@ -37,8 +37,21 @@ class FollowUpApiTests(TestCase):
             format="json",
         )
 
+        self.assertEqual(response.status_code, 201)
+        self.assertEqual(AnalysisFollowUp.objects.count(), 1)
+        self.assertEqual(response.data["question"], "Why is Marketing high risk?")
+        self.assertEqual(
+            response.data["response"]["referenced_findings"], [self.marketing.id]
+        )
+
+    def test_analysis_run_includes_follow_up_history(self):
+        self.client.post(
+            f"/api/analysis-runs/{self.run.id}/follow-up/",
+            {"question": "Why is Marketing high risk?"},
+            format="json",
+        )
+
+        response = self.client.get(f"/api/scenarios/{self.scenario.id}/analysis-runs/")
+
         self.assertEqual(response.status_code, 200)
-        self.assertIn("answer", response.data)
-        self.assertIn("referenced_findings", response.data)
-        self.assertIn("suggested_action", response.data)
-        self.assertEqual(response.data["referenced_findings"], [self.marketing.id])
+        self.assertEqual(len(response.data[0]["follow_ups"]), 1)
