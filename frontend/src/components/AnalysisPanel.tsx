@@ -1,7 +1,8 @@
-import { FileDown, FileText } from "lucide-react";
+import { FileDown, FileText, MessageSquareMore } from "lucide-react";
+import { useEffect, useState } from "react";
 
 import { api } from "../api/client";
-import { AnalysisRun, LineItem } from "../api/types";
+import { AnalysisRun, FollowUpResponse, LineItem } from "../api/types";
 import {
   formatMoney,
   formatPercent,
@@ -19,6 +20,17 @@ export function AnalysisPanel({
   analysis: AnalysisRun | null;
   lineItems: LineItem[];
 }) {
+  const [followUpQuestion, setFollowUpQuestion] = useState("");
+  const [followUpResult, setFollowUpResult] = useState<FollowUpResponse | null>(null);
+  const [followUpLoading, setFollowUpLoading] = useState(false);
+  const [followUpError, setFollowUpError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setFollowUpQuestion("");
+    setFollowUpResult(null);
+    setFollowUpError(null);
+  }, [analysis?.id]);
+
   if (!analysis) {
     return (
       <section className="panel">
@@ -34,6 +46,26 @@ export function AnalysisPanel({
   );
   const analysisSource =
     analysis.provider === "deterministic-fallback" ? "Deterministic fallback" : "LLM";
+  const findingsById = new Map(
+    result.findings.map((finding) => [finding.line_item_id, finding])
+  );
+  const lineItemsById = new Map(lineItems.map((item) => [item.id, item]));
+
+  async function handleFollowUp() {
+    if (!analysis || !followUpQuestion.trim()) return;
+    setFollowUpLoading(true);
+    setFollowUpError(null);
+    try {
+      const nextResult = await api.followUpAnalysis(analysis.id, followUpQuestion.trim());
+      setFollowUpResult(nextResult);
+    } catch (error) {
+      setFollowUpError(
+        error instanceof Error ? error.message : "Failed to ask follow-up."
+      );
+    } finally {
+      setFollowUpLoading(false);
+    }
+  }
 
   return (
     <section className="panel analysisPanel">
@@ -110,6 +142,64 @@ export function AnalysisPanel({
             <li key={recommendation}>{recommendation}</li>
           ))}
         </ol>
+      </div>
+
+      <div className="analysisSection followUpPanel">
+        <h3>Follow-up</h3>
+        <label className="analysisQuestionField">
+          <span>Ask a follow-up about this analysis</span>
+          <textarea
+            rows={3}
+            value={followUpQuestion}
+            onChange={(event) => setFollowUpQuestion(event.target.value)}
+            placeholder="Ask: Why is Marketing high risk?"
+          />
+        </label>
+        <button
+          className="iconTextButton followUpButton"
+          type="button"
+          onClick={() => void handleFollowUp()}
+          disabled={followUpLoading || !followUpQuestion.trim()}
+        >
+          <MessageSquareMore size={16} />
+          {followUpLoading ? "Asking..." : "Ask follow-up"}
+        </button>
+        {followUpError && <p className="emptyState">{followUpError}</p>}
+        {followUpResult && (
+          <div className="followUpResult">
+            <h4>Follow-up answer</h4>
+            <p>{followUpResult.answer}</p>
+            <div className="metric">
+              <span>Suggested action</span>
+              <strong>{followUpResult.suggested_action}</strong>
+            </div>
+            <div className="analysisSection">
+              <h4>Evidence used</h4>
+              <div className="evidenceList">
+                {followUpResult.referenced_findings.map((itemId) => {
+                  const finding = findingsById.get(itemId);
+                  const lineItem = lineItemsById.get(itemId);
+                  if (!finding) return null;
+                  return (
+                    <div className="evidenceItem" key={itemId}>
+                      <p>
+                        {finding.department} / {finding.category}
+                      </p>
+                      {lineItem && (
+                        <p>
+                          Budget: {formatMoney(lineItem.budget_amount)} · Actual:{" "}
+                          {formatMoney(lineItem.actual_amount)} · Variance:{" "}
+                          {formatSignedMoney(lineItem.variance)}
+                        </p>
+                      )}
+                      <p>{finding.evidence}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       <EvidenceDrawer findings={result.findings} lineItems={lineItems} />

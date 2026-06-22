@@ -94,6 +94,10 @@ class AnalysisRunSerializer(serializers.ModelSerializer):
         read_only_fields = fields
 
 
+class AnalysisFollowUpRequestSerializer(serializers.Serializer):
+    question = serializers.CharField(max_length=500)
+
+
 class LLMProviderConfigSerializer(serializers.ModelSerializer):
     api_key = serializers.CharField(write_only=True, required=False, allow_blank=True)
     clear_api_key = serializers.BooleanField(write_only=True, required=False, default=False)

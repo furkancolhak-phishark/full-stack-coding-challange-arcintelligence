@@ -74,6 +74,13 @@ export type AnalysisRun = {
   created_at: string;
 };
 
+export type FollowUpResponse = {
+  answer: string;
+  referenced_findings: number[];
+  suggested_action: string;
+  generated_by: string;
+};
+
 export type ProviderModel = {
   id: string;
   label: string;

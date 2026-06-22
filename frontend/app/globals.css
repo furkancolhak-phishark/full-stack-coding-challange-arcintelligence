@@ -462,6 +462,27 @@ textarea {
   margin-bottom: 8px;
 }
 
+.analysisSection {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.followUpPanel {
+  border-top: 1px solid var(--line);
+  padding-top: 12px;
+}
+
+.followUpButton {
+  align-self: flex-start;
+}
+
+.followUpResult {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
 .evidencePanel {
   border-top: 1px solid var(--line);
   padding-top: 12px;

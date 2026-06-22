@@ -6,6 +6,7 @@ from rest_framework.response import Response
 
 from .models import AnalysisRun, BudgetLineItem, BudgetScenario, LLMProviderConfig
 from .serializers import (
+    AnalysisFollowUpRequestSerializer,
     AnalysisRunSerializer,
     BudgetLineItemSerializer,
     BudgetScenarioSerializer,
@@ -18,6 +19,7 @@ from .services.analysis_export import (
     build_pdf_export,
     export_filename,
 )
+from .services.follow_up import answer_follow_up
 from .services.provider_catalog import provider_choices
 from .services.provider_clients import list_models
 from .services.secrets import decrypt_secret
@@ -104,6 +106,14 @@ class AnalysisRunViewSet(viewsets.ReadOnlyModelViewSet):
             {"detail": "Unsupported export format. Use md or pdf."},
             status=status.HTTP_400_BAD_REQUEST,
         )
+
+    @action(detail=True, methods=["post"], url_path="follow-up")
+    def follow_up(self, request, pk=None):
+        serializer = AnalysisFollowUpRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        run = self.get_object()
+        result = answer_follow_up(run, serializer.validated_data["question"])
+        return Response(result, status=status.HTTP_200_OK)
 
 
 class LLMProviderConfigViewSet(viewsets.ModelViewSet):
