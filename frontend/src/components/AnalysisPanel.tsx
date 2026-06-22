@@ -15,10 +15,12 @@ import { VarianceTable } from "./VarianceTable";
 
 export function AnalysisPanel({
   analysis,
-  lineItems
+  lineItems,
+  onFollowUpCreated
 }: {
   analysis: AnalysisRun | null;
   lineItems: LineItem[];
+  onFollowUpCreated?: (analysisId: number, entry: AnalysisFollowUp) => void;
 }) {
   const [followUpQuestion, setFollowUpQuestion] = useState("");
   const [followUpEntries, setFollowUpEntries] = useState<AnalysisFollowUp[]>([]);
@@ -58,6 +60,7 @@ export function AnalysisPanel({
     try {
       const nextEntry = await api.followUpAnalysis(analysis.id, followUpQuestion.trim());
       setFollowUpEntries((current) => [nextEntry, ...current]);
+      onFollowUpCreated?.(analysis.id, nextEntry);
       setFollowUpQuestion("");
     } catch (error) {
       setFollowUpError(
@@ -186,28 +189,37 @@ export function AnalysisPanel({
             </div>
             <div className="analysisSection">
               <h4>Evidence used</h4>
-              <div className="evidenceList">
-                {entry.response.referenced_findings.map((itemId) => {
-                  const finding = findingsById.get(itemId);
-                  const lineItem = lineItemsById.get(itemId);
-                  if (!finding) return null;
-                  return (
-                    <div className="evidenceItem" key={itemId}>
-                      <p>
-                        {finding.department} / {finding.category}
-                      </p>
-                      {lineItem && (
+              {entry.response.referenced_findings.length === 0 ? (
+                <p className="emptyState">No matching evidence rows were returned for this follow-up.</p>
+              ) : (
+                <div className="evidenceList">
+                  {entry.response.referenced_findings.map((itemId) => {
+                    const finding = findingsById.get(itemId);
+                    const lineItem = lineItemsById.get(itemId);
+                    if (!finding) return null;
+                    return (
+                      <div className="evidenceItem" key={itemId}>
                         <p>
-                          Budget: {formatMoney(lineItem.budget_amount)} · Actual:{" "}
-                          {formatMoney(lineItem.actual_amount)} · Variance:{" "}
-                          {formatSignedMoney(lineItem.variance)}
+                          {finding.department} / {finding.category}
                         </p>
-                      )}
-                      <p>{finding.evidence}</p>
-                    </div>
-                  );
-                })}
-              </div>
+                        {lineItem && (
+                          <p>
+                            Budget: {formatMoney(lineItem.budget_amount)} · Actual:{" "}
+                            {formatMoney(lineItem.actual_amount)} · Variance:{" "}
+                            {formatSignedMoney(lineItem.variance)}
+                          </p>
+                        )}
+                        <p>{finding.evidence}</p>
+                      </div>
+                    );
+                  })}
+                  {entry.response.referenced_findings.every(
+                    (itemId) => !findingsById.get(itemId)
+                  ) && (
+                    <p className="emptyState">No matching evidence rows were returned for this follow-up.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
         ))}

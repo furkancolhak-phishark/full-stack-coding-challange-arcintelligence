@@ -5,6 +5,7 @@ import { RefreshCw, Sparkles } from "lucide-react";
 
 import { api } from "../src/api/client";
 import {
+  AnalysisFollowUp,
   AnalysisRun,
   LineItemPayload,
   ProviderConfig,
@@ -287,6 +288,16 @@ export default function Home() {
     }
   }
 
+  function handleFollowUpCreated(analysisId: number, entry: AnalysisFollowUp) {
+    setAnalysisRuns((runs) =>
+      runs.map((run) =>
+        run.id === analysisId
+          ? { ...run, follow_ups: [entry, ...(run.follow_ups || [])] }
+          : run
+      )
+    );
+  }
+
   return (
     <main className="workspace">
       <aside className="sidebar">
@@ -428,6 +439,7 @@ export default function Home() {
         <AnalysisPanel
           analysis={latestAnalysis}
           lineItems={selectedScenario?.line_items || []}
+          onFollowUpCreated={handleFollowUpCreated}
         />
       </aside>
     </main>

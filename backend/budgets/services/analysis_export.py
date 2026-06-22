@@ -1,10 +1,43 @@
 from io import BytesIO
 
+from html import escape
+
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import mm
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+
+
+def _get_follow_ups(run):
+    if hasattr(run, "follow_ups") and hasattr(run.follow_ups, "all"):
+        return list(run.follow_ups.all().order_by("-created_at"))
+    return list(getattr(run, "follow_ups", []) or [])
+
+
+def _get_follow_up_evidence(run, referenced_findings):
+    findings = run.result.get("findings", []) or []
+    line_items = {
+        item["id"]: item for item in run.input_snapshot.get("line_items", []) or []
+    }
+    findings_by_id = {f.get("line_item_id"): f for f in findings}
+    evidence_rows = []
+    for item_id in referenced_findings or []:
+        finding = findings_by_id.get(item_id)
+        if not finding:
+            continue
+        item = line_items.get(item_id, {})
+        evidence_rows.append(
+            {
+                "department": finding.get("department", ""),
+                "category": finding.get("category", ""),
+                "budget": item.get("budget_amount", ""),
+                "actual": item.get("actual_amount", ""),
+                "variance": item.get("variance", finding.get("variance", "")),
+                "evidence": finding.get("evidence", ""),
+            }
+        )
+    return evidence_rows
 
 
 def build_markdown_export(run):
@@ -69,6 +102,50 @@ def build_markdown_export(run):
     else:
         lines.append("- None")
 
+    lines.extend(["", "## Follow-up Questions", ""])
+    follow_ups = _get_follow_ups(run)
+    if follow_ups:
+        for index, follow_up in enumerate(follow_ups, start=1):
+            response = follow_up.response if isinstance(follow_up.response, dict) else {}
+            question_text = follow_up.question or ""
+            answer_text = response.get("answer", "")
+            suggested_action = response.get("suggested_action", "")
+            referenced_findings = response.get("referenced_findings", []) or []
+            asked_at = (
+                follow_up.created_at.isoformat() if follow_up.created_at else ""
+            )
+
+            lines.extend(
+                [
+                    f"### {index}. {question_text}",
+                    "",
+                    f"- Asked at: {asked_at}",
+                    f"- Answer: {answer_text}",
+                    f"- Suggested action: {suggested_action}",
+                ]
+            )
+            if referenced_findings:
+                lines.append(
+                    f"- Referenced findings: {', '.join(str(fid) for fid in referenced_findings)}"
+                )
+            lines.append("")
+
+            evidence_rows = _get_follow_up_evidence(run, referenced_findings)
+            if evidence_rows:
+                lines.append("Evidence used:")
+                for row in evidence_rows:
+                    lines.append(
+                        f"- {row['department']} / {row['category']} "
+                        f"— Budget: {row['budget']}, Actual: {row['actual']}, "
+                        f"Variance: {row['variance']}"
+                    )
+                    if row["evidence"]:
+                        lines.append(f"  {row['evidence']}")
+                lines.append("")
+    else:
+        lines.append("No follow-up questions for this analysis.")
+        lines.append("")
+
     return "\n".join(lines) + "\n"
 
 
@@ -104,6 +181,14 @@ def build_pdf_export(run):
         spaceAfter=8,
         textColor=colors.HexColor("#163b35"),
     )
+    subheading = ParagraphStyle(
+        "Subheading",
+        parent=styles["Heading3"],
+        fontName="Helvetica-Bold",
+        fontSize=11,
+        spaceAfter=4,
+        textColor=colors.HexColor("#163b35"),
+    )
     title = ParagraphStyle(
         "Title",
         parent=styles["Title"],
@@ -114,28 +199,48 @@ def build_pdf_export(run):
     )
 
     story = [
-        Paragraph(f"Budget Analysis Export: {scenario.name}", title),
+        Paragraph(f"Budget Analysis Export: {escape(scenario.name)}", title),
         Spacer(1, 4),
         Paragraph(
-            f"Period: {scenario.period}<br/>Generated: {run.created_at.isoformat()}<br/>"
-            f"Provider: {run.provider} / {run.model or 'deterministic-fallback'}",
+            f"Period: {escape(scenario.period)}<br/>Generated: {run.created_at.isoformat()}<br/>"
+            f"Provider: {escape(run.provider)} / {escape(run.model or 'deterministic-fallback')}",
             body,
         ),
         Spacer(1, 6),
         Paragraph("Summary", heading),
-        Paragraph(result.get("summary", ""), body),
+        Paragraph(escape(result.get("summary", "")), body),
         Paragraph("Totals", heading),
     ]
 
+    totals_header_style = ParagraphStyle(
+        "TotalsHeader",
+        parent=styles["BodyText"],
+        fontName="Helvetica-Bold",
+        fontSize=9,
+        leading=12,
+    )
+    totals_cell_style = ParagraphStyle(
+        "TotalsCell",
+        parent=styles["BodyText"],
+        fontName="Helvetica",
+        fontSize=9,
+        leading=12,
+    )
     totals_table = Table(
         [
-            ["Budget", "Actual", "Variance", "Variance %", "Health score"],
             [
-                result.get("total_budget", ""),
-                result.get("total_actual", ""),
-                result.get("total_variance", ""),
-                str(result.get("total_variance_percent", "n/a")),
-                str(result.get("health_score", "")),
+                Paragraph("Budget", totals_header_style),
+                Paragraph("Actual", totals_header_style),
+                Paragraph("Variance", totals_header_style),
+                Paragraph("Variance %", totals_header_style),
+                Paragraph("Health score", totals_header_style),
+            ],
+            [
+                Paragraph(escape(str(result.get("total_budget", ""))), totals_cell_style),
+                Paragraph(escape(str(result.get("total_actual", ""))), totals_cell_style),
+                Paragraph(escape(str(result.get("total_variance", ""))), totals_cell_style),
+                Paragraph(escape(str(result.get("total_variance_percent", "n/a"))), totals_cell_style),
+                Paragraph(escape(str(result.get("health_score", ""))), totals_cell_style),
             ],
         ],
         colWidths=[32 * mm, 32 * mm, 32 * mm, 32 * mm, 28 * mm],
@@ -146,7 +251,6 @@ def build_pdf_export(run):
                 ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e6f0ed")),
                 ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#163b35")),
                 ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#c6d3cf")),
-                ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                 ("PADDING", (0, 0), (-1, -1), 6),
             ]
         )
@@ -154,15 +258,37 @@ def build_pdf_export(run):
     story.extend([totals_table, Spacer(1, 10), Paragraph("Findings", heading)])
 
     if findings:
+        cell_style = ParagraphStyle(
+            "CellStyle",
+            parent=styles["BodyText"],
+            fontName="Helvetica",
+            fontSize=8.5,
+            leading=11,
+        )
+        header_style = ParagraphStyle(
+            "HeaderCellStyle",
+            parent=styles["BodyText"],
+            fontName="Helvetica-Bold",
+            fontSize=9,
+            leading=12,
+        )
         findings_table = Table(
-            [["Area", "Severity", "Variance", "Variance %", "Recommendation"]]
+            [
+                [
+                    Paragraph("Area", header_style),
+                    Paragraph("Severity", header_style),
+                    Paragraph("Variance", header_style),
+                    Paragraph("Variance %", header_style),
+                    Paragraph("Recommendation", header_style),
+                ]
+            ]
             + [
                 [
-                    f"{finding['department']} / {finding['category']}",
-                    finding["severity"],
-                    finding["variance"],
-                    str(finding["variance_percent"]),
-                    finding["recommendation"],
+                    Paragraph(escape(f"{finding['department']} / {finding['category']}"), cell_style),
+                    Paragraph(escape(str(finding["severity"])), cell_style),
+                    Paragraph(escape(str(finding["variance"])), cell_style),
+                    Paragraph(escape(str(finding["variance_percent"])), cell_style),
+                    Paragraph(escape(str(finding["recommendation"])), cell_style),
                 ]
                 for finding in findings
             ],
@@ -174,7 +300,6 @@ def build_pdf_export(run):
                     ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#e6f0ed")),
                     ("TEXTCOLOR", (0, 0), (-1, 0), colors.HexColor("#163b35")),
                     ("GRID", (0, 0), (-1, -1), 0.5, colors.HexColor("#c6d3cf")),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
                     ("VALIGN", (0, 0), (-1, -1), "TOP"),
                     ("PADDING", (0, 0), (-1, -1), 5),
                 ]
@@ -187,7 +312,7 @@ def build_pdf_export(run):
     story.append(Paragraph("Recommendations", heading))
     if recommendations:
         for index, recommendation in enumerate(recommendations, start=1):
-            story.append(Paragraph(f"{index}. {recommendation}", body))
+            story.append(Paragraph(f"{index}. {escape(recommendation)}", body))
     else:
         story.append(Paragraph("No recommendations.", body))
 
@@ -196,11 +321,62 @@ def build_pdf_export(run):
     for finding in findings:
         story.append(
             Paragraph(
-                f"<b>{finding['department']} / {finding['category']}</b><br/>"
-                f"{finding['evidence']}",
+                f"<b>{escape(finding['department'])} / {escape(finding['category'])}</b><br/>"
+                f"{escape(finding['evidence'])}",
                 body,
             )
         )
+
+    story.append(Spacer(1, 10))
+    story.append(Paragraph("Follow-up Questions", heading))
+    follow_ups = _get_follow_ups(run)
+    if follow_ups:
+        for index, follow_up in enumerate(follow_ups, start=1):
+            response = follow_up.response if isinstance(follow_up.response, dict) else {}
+            question_text = follow_up.question or ""
+            answer_text = response.get("answer", "")
+            suggested_action = response.get("suggested_action", "")
+            referenced_findings = response.get("referenced_findings", []) or []
+            asked_at = (
+                follow_up.created_at.isoformat() if follow_up.created_at else ""
+            )
+
+            story.append(
+                Paragraph(
+                    f"{index}. {escape(question_text)}",
+                    subheading,
+                )
+            )
+            story.append(Paragraph(f"Asked at: {escape(asked_at)}", body))
+            story.append(Paragraph(f"Answer: {escape(answer_text)}", body))
+            story.append(
+                Paragraph(f"Suggested action: {escape(suggested_action)}", body)
+            )
+            if referenced_findings:
+                story.append(
+                    Paragraph(
+                        f"Referenced findings: {escape(', '.join(str(fid) for fid in referenced_findings))}",
+                        body,
+                    )
+                )
+
+            evidence_rows = _get_follow_up_evidence(run, referenced_findings)
+            if evidence_rows:
+                story.append(Paragraph("<b>Evidence used:</b>", body))
+                for row in evidence_rows:
+                    story.append(
+                        Paragraph(
+                            f"{escape(row['department'])} / {escape(row['category'])} "
+                            f"— Budget: {escape(str(row['budget']))}, "
+                            f"Actual: {escape(str(row['actual']))}, "
+                            f"Variance: {escape(str(row['variance']))}<br/>"
+                            f"{escape(row['evidence'])}",
+                            body,
+                        )
+                    )
+            story.append(Spacer(1, 6))
+    else:
+        story.append(Paragraph("No follow-up questions for this analysis.", body))
 
     doc.build(story)
     buffer.seek(0)

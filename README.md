@@ -12,7 +12,7 @@ Users can:
 - ask follow-up questions about a saved analysis
 - view the result as structured UI instead of plain text
 - switch between saved analysis runs
-- export a saved analysis as Markdown or PDF
+- export a saved analysis as Markdown or PDF, including follow-up Q&A history
 
 The backend calculates totals, variances, percentages, and review priority first. After that, a model can turn those facts into a structured analysis. If no API key is available, or if the model response fails validation, the app falls back to a deterministic result so the product still works.
 
@@ -108,6 +108,8 @@ Gemini is the default hosted option in this repo, and the default Gemini model i
 At the same time, I did not want the app to be tied to one provider or one model. That is why I added the provider layer in the first place. The user can configure Gemini, OpenAI, Anthropic, or Ollama, browse that provider's model list, pick the model they want, and use that selection when running `Analyze Budget`.
 
 I also added a simple follow-up flow on top of a saved analysis. It is not a full chat interface. Instead, the user can ask follow-up questions about the selected analysis run and get structured answers with referenced findings and a suggested action. Those follow-up entries are saved with the analysis run and still appear after refresh.
+
+Both Markdown and PDF report exports include the original structured analysis and all saved follow-up Q&A history (question, answer, suggested action, referenced findings, and evidence). This makes exported reports useful for review handoff because they contain the full summary, totals, findings, recommendations, evidence, and follow-up question history.
 
 Provider API keys saved from the UI are encrypted in the backend database. The UI only shows masked values after save.
 
