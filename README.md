@@ -64,6 +64,16 @@ If you want to use a hosted model, open the provider settings panel and:
 - sync the provider's available models
 - choose a model and mark that config as active for analysis
 
+If your provider does not support the default model, choose a supported model from Provider Settings or set a supported model in `.env`.
+
+## Demo Notes
+
+The app does not require an API key for the core demo.
+
+If no provider key is configured, `Analyze Budget` still works and returns the deterministic fallback analysis. That means a reviewer can still test the full product flow without any external setup.
+
+If someone wants to see a hosted LLM response instead, they can add their own provider key in Provider Settings, sync models, select a supported model, and run the analysis again.
+
 ## Environment Variables
 
 The project uses `.env.example` as the template.

@@ -20,6 +20,7 @@ import { ScenarioForm } from "../src/components/ScenarioForm";
 import { ScenarioList } from "../src/components/ScenarioList";
 
 export default function Home() {
+  const defaultAnalysisQuestion = "Which line items should we review first?";
   const [scenarios, setScenarios] = useState<Scenario[]>([]);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [selectedScenario, setSelectedScenario] = useState<Scenario | null>(null);
@@ -32,6 +33,7 @@ export default function Home() {
   const [providerSaving, setProviderSaving] = useState(false);
   const [syncingProviderId, setSyncingProviderId] = useState<number | null>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
+  const [analysisQuestion, setAnalysisQuestion] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const latestAnalysis = useMemo(() => {
@@ -115,6 +117,7 @@ export default function Home() {
       setSelectedScenario(scenario);
       setAnalysisRuns(runs);
       setSelectedAnalysisId(runs[0]?.id || null);
+      setAnalysisQuestion("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load scenario.");
     }
@@ -199,7 +202,7 @@ export default function Home() {
     setError(null);
     try {
       const run = await api.analyzeScenarioWithProvider(selectedScenario.id, {
-        question: "Which line items should we review first?",
+        question: analysisQuestion.trim() || defaultAnalysisQuestion,
         provider_config_id: activeProvider?.id || null
       });
       await loadScenario(selectedScenario.id);
@@ -369,6 +372,15 @@ export default function Home() {
                   {analysisLoading ? "Analyzing..." : "Analyze Budget"}
                 </button>
               </div>
+              <label className="analysisQuestionField">
+                <span>Analysis question</span>
+                <textarea
+                  rows={3}
+                  value={analysisQuestion}
+                  onChange={(event) => setAnalysisQuestion(event.target.value)}
+                  placeholder="Ask: Which departments are over budget?"
+                />
+              </label>
               <ScenarioForm
                 scenario={selectedScenario}
                 onSubmit={updateScenario}

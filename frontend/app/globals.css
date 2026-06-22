@@ -307,6 +307,23 @@ textarea {
   height: 39px;
 }
 
+.analysisQuestionField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+}
+
+.analysisQuestionField span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.analysisQuestionField textarea {
+  min-height: 88px;
+}
+
 .errorBanner {
   background: var(--danger-soft);
   border: 1px solid #f1bbb6;
