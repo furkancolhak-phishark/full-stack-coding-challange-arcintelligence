@@ -34,7 +34,7 @@ My rough plan was:
 - add provider configuration, history, and export support after the core flow was stable
 - test and refine the product until it felt complete enough for submission
 
-For the frontend, my thinking was a bit more flexible, but the main product slice was still built around Codex.
+For the frontend, my thinking was a bit more flexible. If the UI effort had needed to go much further, I could also have used OpenCode with models like Qwen or DeepSeek for faster iteration on the presentation side. But the challenge did not ask for a perfect frontend, so I chose to keep the UI simple, clear, and functional instead of spending too much time polishing visual details.
 
 Testing was also part of the process from both sides. Codex and I tested things in parallel, and after a few extra passes and fixes, I felt the product reached a solid final state.
 
